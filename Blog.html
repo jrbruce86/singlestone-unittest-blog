@@ -1,0 +1,501 @@
+Writing unit tests that change how you think about your code
+
+Test driven development can be a valuable technique for code analysis, regression testing, and documentation. Many tools and frameworks that are freely available can make writing these tests and verifying code coverage become much easier. Unit tests are most useful when they are used consistently and in a standard and readable way.
+
+In this blog I will walk through the test-driven development of a RESTful API built in Java and leveraging the Spring framework and the H2 in memory database. For the unit tests, Mockito framework and a code coverage tool called ___ are leveraged. The API's purpose is to track purchases in a store inventory system.
+
+Below is the specification of what the API needs to do:
+- Endpoint(s) to store and retrieve customer purchases, each in the following json format:
+    { "customerID" : "[customerID string]", "date" : ["purchaseDate"], "PurchasedItems" : [{"itemID": "[itemID string]", "itemCost": [cost integer]}] }
+- Endpoint to receive list of all customers who made purchases
+- Endpoint to receive audit trail of purchases for a customer. Includes the total spent for each purchase and ranked in descending order by purchase cost
+- Endpoint which retrieves the total amount spent for a customer across all purchases
+
+For purposes of this blog we will jump into a class which contains all of the business logic for the above functionality and walk through its functionality and unit testing approach. To see the full source code, visit ____.
+
+
+
+
+
+
+
+This API  needs to make an HTTP call to another system that may fail at random times. Regardless of whether the API we call fails, we have a strict guarantee to our costumers that we return within 5 seconds. Within that 5 seconds we want to make sure we retry in case of failure and we set a limit of 3 retries. We are using Java and we want to implement our own reusable object which handles our retries of a function in case exceptions are thrown, and we need to test the functionality in different scenarios.
+
+Below is an example of how to implement a class that handles our retry logic:
+
+/**
+* Service used by classes that need to retry a runnable with configurable settings.
+*/
+@Log4j2
+public class SimpleRetryStrategyService<T> {
+
+    private final int numRetries;
+    private final long waitBeforeRetryMs;
+    private final long maxMsElapsed;
+    private final Set<Class<? extends Exception>> ignoredExceptions;
+
+    /**
+    * Constructor
+    * @param numRetries the max amount of retries
+    * @param waitBeforeRetryMs time in ms to wait in between each retry
+    * @param maxMsElapsed maximum time in ms allowed to elapse before retry (if elapses before retries complete, retry is aborted)
+    * @param ignoredExceptions the exceptions that are not to be retried
+    */
+    public SimpleRetryStrategyService(final int numRetries, final long waitBeforeRetryMs, final long maxMsElapsed,
+    final Set<Class<? extends Exception>> ignoredExceptions) {
+    this.numRetries = numRetries;
+    this.waitBeforeRetryMs = waitBeforeRetryMs;
+    this.maxMsElapsed = maxMsElapsed;
+    this.ignoredExceptions = ignoredExceptions;
+    }
+
+    /**
+    * Invokes the runnable up to the configured number of retries if an exception is thrown. After the
+    * configured amount of retries have been run the method exits by rethrowing the runnable's exception.
+    * @param runnable the runnable
+    * @throws Exception thrown if the configured number of retries are used, this is whatever exception was thrown
+    *                   by the runnable
+    */
+    public T doWithRetry(RunnableWithThrowable<T> runnable) throws Exception {
+        int retryCount = 0;
+        final long startTime = System.currentTimeMillis();
+        while(true) {
+        try {
+        return runnable.run();
+        } catch(final Exception e) {
+        ++retryCount;
+        final long msElapsed = System.currentTimeMillis() - startTime;
+        final boolean isIgnored = ignoredExceptions.contains(e.getClass());
+        log.info("Caught exception running a retryable operation. Made {} attempts out of {} and {} milliseconds out of {} elapsed. The exception {} is {} for retries",
+        retryCount, numRetries, msElapsed, maxMsElapsed, e.getClass().getSimpleName(), (isIgnored ? "excluded" : "not excluded"));
+        if(retryCount >= numRetries || msElapsed >= maxMsElapsed || isIgnored) {
+        throw e;
+        }
+        try {
+        Thread.sleep(waitBeforeRetryMs);
+        } catch(final InterruptedException ie) {
+        log.error("Caught thread interrupted exception while waiting between retries: ", ie);
+        }
+        }
+        }
+        }
+
+        /**
+        * Functional interface to define the operation that will be retried
+        * (assumed to possibly throw an exception and also return some specific type)
+        * @param <U> the return type of the retry operation
+            */
+            @FunctionalInterface
+            public interface RunnableWithThrowable<U> {
+                U run() throws Exception;
+                }
+
+                }
+
+                And here is where we are using this code:
+                public Response fetchRefreshTokenThenSave(final @ApiParam(value = "Identifies which partner we are dealing with.", required = true) @Valid @PathParam("relationship-id") String relationshipId,
+                final @ApiParam(value = "The record to retrieve a token for and then save.") @Valid PartnerTokenLookupInput partnerTokenLookupInput,
+                final @HeaderParam("OAuth_ClientID") String callerId) {
+
+                log.info("[PartnerVcnResource.fetchRefreshTokenThenSave] [Endpoint Entry] [OAuth_ClientID:{}] Arguments provided - relationshipId: {} and partnerTokenLookupInput: {}", callerId, relationshipId, partnerTokenLookupInput);
+
+                // 1. Make call to partner in order to retrieve long-lived token and its expiry date
+                final PartnerToken partnerToken;
+                try {
+                log.info("[PartnerVcnResource.fetchRefreshTokenThenSave] 1. Fetching OAuth refresh token from partner api gateway.");
+                partnerToken = walmartFetchRetryService.doWithRetry(() -> partnerCommsService.retrieveLongLivedToken(partnerTokenLookupInput.getShortToken()));
+                log.info("[PartnerVcnResource.fetchRefreshTokenThenSave] Successfully obtained oauth refresh token from partner api gateway.");
+                } catch(final Exception e) {
+                log.error("[PartnerVcnResource.fetchRefreshTokenThenSave] [Walmart Fetch Alert] [Endpoint Exit] Failed to obtain oauth refresh token. Exception: ", e);
+                return Response.serverError()
+                .entity(new ErrorResponse()
+                .setDeveloperText(String.format("Failed to obtain oauth refresh token using authorization code, %s"
+                + ". Exception: %s", partnerTokenLookupInput.getShortToken(), ExceptionUtils.getStackTrace(e)))
+                .setId(HttpURLConnection.HTTP_INTERNAL_ERROR))
+                .header("Description", "The API encountered an error while obtaining refresh token from walmart." +
+                "Is the provided authorization code still valid?")
+                .build();
+                }
+
+                // 2. Save new Token to VCN relationship
+                log.info("[PartnerVcnResource.fetchRefreshTokenThenSave] 2. Storing partnerTokenLookupInput {} with the fetched refresh token.", partnerTokenLookupInput);
+                final PartnerVcn partnerVcn = partnerVcnService.save(partnerVcnEndpointMapperService.toPartnerVcn(partnerTokenLookupInput, partnerToken, relationshipId));
+
+                // 3. Return the saved record to the caller
+                log.info("[PartnerVcnResource.fetchRefreshTokenThenSave] 3. Successfully stored partnerTokenLookupInput {} with fetched refresh token. Returning saved result back to calling api.", partnerTokenLookupInput);
+                overrideChassisDefault(200);
+                return tokenRecordCreatedResponse(partnerVcnEndpointMapperService.toTokenResponse(partnerVcn), 200, "fetchRefreshTokenThenSave");
+                }
+
+                First we want to test that the Retry logic works correctly in isolation:
+
+                public class SimpleRetryStrategyServiceTest {
+
+                private int numRetries = 5;
+                private long waitBeforeRetryMs = 50L;
+                private long maxMsElapsed = 300L;
+                private Set<Class<? extends Exception>> exceptionsToIgnore;
+
+                private int actualTryCount = 0;
+                private Exception failedException = new RuntimeException("Retryable operation failure");
+                private ResourceAccessException blacklistedException = new ResourceAccessException("This exception should not be retried");
+                private Object successRetVal = new Object();
+
+                private SimpleRetryStrategyService<Object> objectUnderTest;
+
+                    @Before
+                    public void setup() {
+                    exceptionsToIgnore = createDefaultExceptionsToIgnore();
+                    objectUnderTest = new SimpleRetryStrategyService(numRetries, waitBeforeRetryMs, maxMsElapsed, exceptionsToIgnore);
+                    actualTryCount = 0;
+                    }
+
+                    @Test
+                    public void firstTrySuccess() throws Exception {
+                    /**
+                    * Setup
+                    */
+                    final int expectedTries = 1;
+
+                    /**
+                    * Exercise
+                    */
+                    objectUnderTest.doWithRetry(() -> runSuccessful());
+
+                    /**
+                    * Verify
+                    */
+                    Assert.assertTrue(String.format("Error testing retry strategy. Expected %d try when successful but there were %d", expectedTries, actualTryCount),
+                    actualTryCount == expectedTries);
+                    }
+
+                    @Test
+                    public void secondTrySuccess() throws Exception {
+                    /**
+                    * Setup
+                    */
+                    final int expectedTries = 2;
+
+                    /**
+                    * Exercise
+                    */
+                    objectUnderTest.doWithRetry(() -> runFailureUntil(expectedTries));
+
+                    /**
+                    * Verify
+                    */
+                    Assert.assertTrue(String.format("Error testing retry strategy. Expected %d tries when successful but there were %d", expectedTries, actualTryCount),
+                    actualTryCount == expectedTries);
+                    }
+
+                    @Test
+                    public void nMinusOneTrySuccess() throws Exception {
+                    /**
+                    * Setup
+                    */
+                    final int expectedTries = numRetries - 1;
+
+                    /**
+                    * Exercise
+                    */
+                    objectUnderTest.doWithRetry(() -> runFailureUntil(expectedTries));
+
+                    /**
+                    * Verify
+                    */
+                    Assert.assertTrue(String.format("Error testing retry strategy. Expected %d tries but there were %d", expectedTries, actualTryCount),
+                    actualTryCount == expectedTries);
+                    }
+
+                    @Test
+                    public void retriesExhaustedFailure() throws Exception {
+                    /**
+                    * Setup
+                    */
+                    final int expectedTries = numRetries;
+
+                    /**
+                    * Exercise
+                    */
+                    try {
+                    objectUnderTest.doWithRetry(() -> runFailure());
+                    } catch(final Exception e) {
+                    /**
+                    * Verify
+                    */
+                    Assert.assertTrue(String.format("Error testing retry strategy. Expected the %s exception but instead got %s", failedException, e),
+                    e.equals(failedException));
+                    Assert.assertTrue(String.format("Error testing retry strategy. Expected %d tries before failing but got %d", expectedTries, actualTryCount),
+                    expectedTries == actualTryCount);
+                    return;
+                    }
+                    /**
+                    * Verify
+                    */
+                    // If got here then there's an issue (exception must be rethrown)
+                    Assert.assertTrue("Error testing retry strategy. Expected an exception to be rethrown when the retries are exhausted but it was not.", false);
+
+                    }
+
+                    @Test
+                    public void timeoutPriorToRetryFailure() throws Exception {
+                    /**
+                    * Setup
+                    */
+                    final int expectedTries = 1;
+
+                    /**
+                    * Exercise
+                    */
+                    try {
+                    objectUnderTest.doWithRetry(() -> runFailureWithDelay(maxMsElapsed + 50));
+                    } catch(final Exception e) {
+                    /**
+                    * Verify
+                    */
+                    Assert.assertTrue(String.format("Error testing retry strategy. Expected %d tries before failing but got %d", expectedTries, actualTryCount),
+                    expectedTries == actualTryCount);
+                    return;
+                    }
+                    /**
+                    * Verify
+                    */
+                    // If got here then there's an issue (exception must be rethrown)
+                    Assert.assertTrue("Error testing retry strategy. Expected an exception to be rethrown when the retries are exhausted but it was not.", false);
+                    }
+
+                    @Test
+                    public void blackListedExceptionFailure() throws Exception {
+                    /**
+                    * Setup
+                    */
+
+                    final int expectedTries = 1;
+
+                    /**
+                    * Exercise
+                    */
+                    try {
+                    objectUnderTest.doWithRetry(() -> {
+                    ++actualTryCount;
+                    throw blacklistedException;
+                    });
+                    } catch(final Exception e) {
+                    /**
+                    * Verify
+                    */
+                    Assert.assertTrue(String.format("Error testing retry strategy. Expected %d tries but got %d", expectedTries, actualTryCount),
+                    expectedTries == actualTryCount);
+                    return;
+                    }
+                    /**
+                    * Verify
+                    */
+                    // If got here then there's an issue (exception must be rethrown)
+                    Assert.assertTrue("Error testing retry strategy. Expected an exception to be rethrown when the retries are exhausted but it was not.", false);
+                    }
+
+                    /**
+                    * Internal method used to simulate successful function
+                    * @return some object
+                    */
+                    private Object runSuccessful() {
+                    ++actualTryCount;
+                    return successRetVal;
+                    }
+
+                    /**
+                    * Internal method used to simulate a failure up until a specific try
+                    * @param successTry the try to succeed on
+                    * @return some object when successful
+                    */
+                    private Object runFailureUntil(final int successTry) throws Exception {
+                    ++actualTryCount;
+                    if(actualTryCount == successTry) {
+                    return successRetVal;
+                    } else {
+                    throw failedException;
+                    }
+                    }
+
+                    /**
+                    * Internal method used to simulate a method failure
+                    * @return nothing
+                    * @throws Exception thrown in this method
+                    */
+                    private Object runFailure() throws Exception {
+                    ++actualTryCount;
+                    throw failedException;
+                    }
+
+                    /**
+                    *
+                    * @param delayMs the delay to wait in ms before throwing the exception
+                    * @return nothing
+                    * @throws Exception thrown in this method after the delay
+                    */
+                    private Object runFailureWithDelay(final long delayMs) throws Exception {
+                    ++actualTryCount;
+                    Thread.sleep(delayMs);
+                    throw failedException;
+                    }
+
+                    /**
+                    * Helper to create default set of exceptions that are blacklisted from retries
+                    * @return the blacklisted exceptions
+                    */
+                    private Set<Class<? extends Exception>> createDefaultExceptionsToIgnore() {
+                    final Set<Class<? extends Exception>> exceptionsToIgnore = new HashSet<>();
+                    exceptionsToIgnore.add(blacklistedException.getClass());
+                    return exceptionsToIgnore;
+                    }
+
+                    }
+
+                    Now we want to test the code being used and cover all of the paths:
+                    @Log4j2
+                    public class PartnerVcnResourceTest {
+
+                    private PartnerVcnEndpointMapperService partnerVcnEndpointMapperService;
+                    private PartnerVcnService partnerVcnService;
+                    private PartnerCommsService partnerCommsService;
+                    private DbManagerService dbManagerService;
+                    private SimpleRetryStrategyService<PartnerToken> walmartFetchRetryService;
+
+                        private PartnerVcnResource objectUnderTest;
+
+                        private ResourceAccessException blacklistedException = new ResourceAccessException("This exception is blackslisted from retries");
+                        private IllegalArgumentException whitelistedException = new IllegalArgumentException("This exception is can be retried");
+                        private static final int maxRetries = 3;
+
+                        @Before
+                        public void setup() {
+                        partnerVcnEndpointMapperService = Mockito.mock(PartnerVcnEndpointMapperService.class);
+                        partnerVcnService = Mockito.mock(PartnerVcnService.class);
+                        partnerCommsService = Mockito.mock(PartnerCommsService.class);
+                        dbManagerService = Mockito.mock(DbManagerService.class);
+                        walmartFetchRetryService = createDefaultSpiedRetryStrategy();
+
+                        objectUnderTest = new PartnerVcnResource(partnerVcnEndpointMapperService,
+                        partnerVcnService, partnerCommsService, dbManagerService, walmartFetchRetryService);
+
+                        // Mock out the "uri info"
+                        final UriInfo uriInfo = MiscTestUtils.getDefaultUriInfo("www.tokenvault/bla/bla/");
+                        MiscTestUtils.setPrivateField(objectUnderTest, "uriInfo", uriInfo);
+                        }
+
+                        @Test
+                        public void testSaveAndRetrieveSuccess() throws Exception {
+                        /**
+                        * Setup
+                        */
+                        // setup arguments
+                        final String relationshipId = "18";
+                        final PartnerTokenLookupInput partnerTokenLookupInput = Mockito.mock(PartnerTokenLookupInput.class);
+                        final String shortToken = "9999";
+                        Mockito.when(partnerTokenLookupInput.getShortToken()).thenReturn(shortToken);
+
+                        // setup the oath refresh token lookup
+                        final PartnerToken partnerToken = Mockito.mock(PartnerToken.class);
+                        Mockito.when(partnerCommsService.retrieveLongLivedToken(shortToken)).thenReturn(partnerToken);
+
+                        // setup the input to the save operation
+                        final PartnerVcn saveInput = Mockito.mock(PartnerVcn.class);
+                        Mockito.when(partnerVcnEndpointMapperService.toPartnerVcn(partnerTokenLookupInput, partnerToken, relationshipId))
+                        .thenReturn(saveInput);
+
+                        // setup the output of the save operation
+                        final PartnerVcn saveOutput = Mockito.mock(PartnerVcn.class);
+                        Mockito.when(partnerVcnService.save(saveInput)).thenReturn(saveOutput);
+
+                        // setup the formatting of the output
+                        final RepositoryRecord saveResponse = Mockito.mock(RepositoryRecord.class);
+                        Mockito.when(partnerVcnEndpointMapperService.toTokenResponse(saveOutput)).thenReturn(saveResponse);
+
+
+                        /**
+                        * Exercise
+                        */
+                        final Response response = objectUnderTest.fetchRefreshTokenThenSave(relationshipId, partnerTokenLookupInput, "Kramer");
+
+                        /**
+                        * Verify
+                        */
+                        Assert.assertTrue(response.getStatus() == 200);
+                        Assert.assertTrue(response.getEntity() == saveResponse);
+                        Mockito.verify(partnerVcnService, Mockito.times(1)).save(saveInput);
+                        Mockito.verify(partnerVcnEndpointMapperService, Mockito.times(1)).toTokenResponse(saveOutput);
+
+                        }
+
+                        @Test
+                        public void testSaveAndRetrieveRetryBlacklistedFailure() throws Exception {
+                        /**
+                        * Setup
+                        */
+                        //setup arguments
+                        final String relationshipId = "18";
+                        final PartnerTokenLookupInput partnerTokenLookupInput = Mockito.mock(PartnerTokenLookupInput.class);
+                        final String shortToken = "9999";
+                        Mockito.when(partnerTokenLookupInput.getShortToken()).thenReturn(shortToken);
+
+                        // setup exception being thrown on fetch call
+                        Mockito.when(partnerCommsService.retrieveLongLivedToken(Mockito.any())).thenThrow(blacklistedException);
+
+                        // setup expected response
+                        final int expectedResponse = Response.serverError().build().getStatus();
+
+                        /**
+                        * Exercise
+                        */
+                        final Response actualResponse = objectUnderTest.fetchRefreshTokenThenSave(relationshipId, partnerTokenLookupInput, "Elaine");
+
+                        /**
+                        * Verify
+                        */
+                        Mockito.verify(partnerCommsService, Mockito.times(1)).retrieveLongLivedToken(shortToken);
+                        Assert.assertTrue(String.format("Error while testing walmart fetch retry failure. Expecting %d as response but instead got %d", expectedResponse, actualResponse.getStatus()),
+                        expectedResponse == actualResponse.getStatus());
+                        }
+
+                        @Test
+                        public void testSaveAndRetrieveRetriesExhaustedFailure() throws Exception {
+                        /**
+                        * Setup
+                        */
+                        //setup arguments
+                        final String relationshipId = "18";
+                        final PartnerTokenLookupInput partnerTokenLookupInput = Mockito.mock(PartnerTokenLookupInput.class);
+                        final String shortToken = "9999";
+                        Mockito.when(partnerTokenLookupInput.getShortToken()).thenReturn(shortToken);
+
+                        // setup exception being thrown on fetch call
+                        Mockito.when(partnerCommsService.retrieveLongLivedToken(Mockito.any())).thenThrow(whitelistedException);
+
+                        // setup expected response
+                        final int expectedResponse = Response.serverError().build().getStatus();
+
+                        /**
+                        * Exercise
+                        */
+                        final Response actualResponse = objectUnderTest.fetchRefreshTokenThenSave(relationshipId, partnerTokenLookupInput, "Newman");
+
+                        /**
+                        * Verify
+                        */
+                        Mockito.verify(partnerCommsService, Mockito.times(maxRetries)).retrieveLongLivedToken(shortToken);
+                        Assert.assertTrue(String.format("Error while testing walmart fetch retry failure. Expecting %d as response but instead got %d", expectedResponse, actualResponse.getStatus()),
+                        expectedResponse == actualResponse.getStatus());
+                        }
+
+                        /**
+                        * Helper to create a default retry strategy used in tests
+                        * @return the retry strategy
+                        */
+                        private SimpleRetryStrategyService<PartnerToken> createDefaultSpiedRetryStrategy() {
+                            final Set<Class<? extends Exception>> blacklistedExceptions = new HashSet<>();
+                            blacklistedExceptions.add(blacklistedException.getClass());
+                            return Mockito.spy(new SimpleRetryStrategyService<>(maxRetries, 25, 100, blacklistedExceptions));
+                            }
+
+                            }
