@@ -11,6 +11,7 @@ import jake.blog.inventoryApi.persist.StoreItemRepository;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -50,6 +51,7 @@ public class StoreInventoryController {
         if(purchase.isEmpty()) {
             throw new RuntimeException(String.format("Could not find purchase with id, %d", purchaseID));
         }
+        log.error("Actual found record: {}", purchase.get());
         return dtoMapper.toOutboundPurchaseRecordDTO(purchase.get(), getPurchaseTotalCost(purchase.get()));
     }
 
@@ -71,7 +73,9 @@ public class StoreInventoryController {
             result.add(dtoMapper.toOutboundPurchaseRecordDTO(purchaseRecord, getPurchaseTotalCost(purchaseRecord)));
         }
         return result.stream()
-                .sorted((t0, t1) -> Float.valueOf(t0.getPurchaseTotalCost()) > Float.valueOf(t1.getPurchaseTotalCost()) ? 1 : 0)
+                .peek(record -> log.error("On record {}", record))
+                .sorted((t0, t1) -> Float.valueOf(t0.getPurchaseTotalCost()) > Float.valueOf(t1.getPurchaseTotalCost()) ? -1 : 1)
+                .peek(record -> log.error("post sorting.. on record {}", record))
                 .collect(Collectors.toList());
     }
 
@@ -86,10 +90,10 @@ public class StoreInventoryController {
                 .getAsDouble());
     }
 
-    private float getPurchaseTotalCost(final PurchaseRecord purchaseRecord) {
-        return purchaseRecord.getPurchasedItemIDs().stream()
+    private Float getPurchaseTotalCost(final PurchaseRecord purchaseRecord) {
+        return Math.round(purchaseRecord.getPurchasedItemIDs().stream()
                 .map(itemID -> storeItemRepository.findById(itemID))
-                .map(item -> item.get().getCost())
-                .reduce(Float::sum).get();
+                .map(item -> BigDecimal.valueOf(item.get().getCost()))
+                .reduce(BigDecimal::add).get().floatValue() * 100f) / 100f;
     }
 }
