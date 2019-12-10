@@ -326,8 +326,37 @@ class StoreInventoryControllerTest {
     }
 
     @Test
-    void customerTotalSpent() {
-        Assertions.assertTrue(true);
+    void customerTotalSpentSuccess() {
+        /**
+         * Setup
+         */
+        final String customerID = defaultCustomerID1;
+        // stub the customer lookup to succeed
+        Mockito.when(customerRepository.findById(customerID)).thenReturn(Optional.of(defaultCustomer));
+        // stub the customer's purchase lookup to return various purchases
+        final PurchaseRecord purchaseRecord1 = defaultCustomerPurchaseRecord;
+        final Long[] purchase2ItemIDs =  {defaultCustomerPurchaseItemID3, defaultCustomerPurchaseItemID4};
+        final PurchaseRecord purchaseRecord2 = createNewPurchaseRecord(321L, customerID, new Date(), purchase2ItemIDs);
+        final Long[] purchase3ItemIDs = {defaultCustomerPurchaseItemID3, defaultCustomerPurchaseItemID1};
+        final PurchaseRecord purchaseRecord3 = createNewPurchaseRecord(542L, customerID, new Date(), purchase3ItemIDs);
+        final List<PurchaseRecord> purchaseRecordList = new ArrayList<>();
+        purchaseRecordList.add(purchaseRecord3);// $6.48
+        purchaseRecordList.add(purchaseRecord1); // total of $558.15
+        purchaseRecordList.add(purchaseRecord2); // $52.32
+        Mockito.when(purchaseRecordRepository.findAllByCustomerID(customerID)).thenReturn(purchaseRecordList);
+
+        /**
+         * Exercise
+         */
+        final String actualResult = objectUnderTest.customerTotalSpent(customerID);
+
+        /**
+         * Verify
+         */
+        Mockito.verify(customerRepository, Mockito.times(1)).findById(customerID);
+        Mockito.verify(purchaseRecordRepository, Mockito.times(1)).findAllByCustomerID(customerID);
+        final String expectedResult = "$616.95";
+        Assertions.assertEquals(actualResult, expectedResult);
     }
 
     private StoreItem createStoreItem(final Long itemID, final String name, final float cost) {
