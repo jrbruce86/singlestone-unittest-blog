@@ -3,12 +3,11 @@ package jake.blog.inventoryApi.controllers;
 import jake.blog.inventoryApi.mappers.DtoMapper;
 import jake.blog.inventoryApi.model.db.Customer;
 import jake.blog.inventoryApi.model.db.PurchaseRecord;
-import jake.blog.inventoryApi.model.db.StoreItem;
-import jake.blog.inventoryApi.model.dto.InboundPurchaseRecordDTO;
 import jake.blog.inventoryApi.model.dto.OutboundPurchaseRecordDTO;
 import jake.blog.inventoryApi.persist.CustomerRepository;
 import jake.blog.inventoryApi.persist.PurchaseRecordRepository;
 import jake.blog.inventoryApi.persist.StoreItemRepository;
+import jake.blog.inventoryApi.testUtils.DefaultStoreValues;
 import lombok.extern.log4j.Log4j2;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,29 +29,6 @@ class StoreInventoryControllerTest {
     // object being tested
     private StoreInventoryController objectUnderTest;
 
-    // default mocks
-    private Customer defaultCustomer;
-    private String defaultCustomerID1;
-    private String defaultCustomerID2;
-    private String defaultCustomerID3;
-    private String defaultCustomerID4;
-    private String defaultCustomerID5;
-    private InboundPurchaseRecordDTO defaultInboundCustomerPurchase;
-    private Long defaultCustomerPurchaseRecordID;
-    private Date defaultCustomerPurchaseRecordCreatedDate;
-    private PurchaseRecord defaultCustomerPurchaseRecord;
-    private Set<Long> defaultCustomerPurchaseItemIDs;
-    private Long defaultCustomerPurchaseItemID1 = 1L;
-    private StoreItem defaultCustomerPurchaseItem1 = createStoreItem(defaultCustomerPurchaseItemID1, "toothpaste", 5.37f);
-    private Long defaultCustomerPurchaseItemID2 = 2L;
-    private StoreItem defaultCustomerPurchaseItem2 = createStoreItem(defaultCustomerPurchaseItemID2, "TV", 500.46f);
-    private Long defaultCustomerPurchaseItemID3 = 3L;
-    private StoreItem defaultCustomerPurchaseItem3 = createStoreItem(defaultCustomerPurchaseItemID2, "Potato Chips", 1.11f);
-    private Long defaultCustomerPurchaseItemID4 = 4L;
-    private StoreItem defaultCustomerPurchaseItem4 = createStoreItem(defaultCustomerPurchaseItemID2, "Sneakers", 51.21f);
-    private Float defaultCustomerPurchaseTotalCost = 558.15f; // the sum of the above
-    private List<Customer> defaultListOfCustomers;
-
     @BeforeEach
     public void setup() {
         purchaseRecordRepository = Mockito.mock(PurchaseRecordRepository.class);
@@ -63,36 +39,7 @@ class StoreInventoryControllerTest {
         objectUnderTest = new StoreInventoryController(purchaseRecordRepository,
                 storeItemRepository, customerRepository, dtoMapper);
 
-        defaultCustomerID1 = "Bilbo Baggins";
-        defaultCustomerID2 = "Jerry Seinfeld";
-        defaultCustomerID3 = "Newman";
-        defaultCustomerID4 = "Kramer";
-        defaultCustomerID5 = "Gandalf";
-        defaultCustomer = new Customer().setCustomerID(defaultCustomerID1);
-        defaultCustomerPurchaseItemIDs = new HashSet<>();
-        defaultCustomerPurchaseItemIDs.add(defaultCustomerPurchaseItemID1);
-        defaultCustomerPurchaseItemIDs.add(defaultCustomerPurchaseItemID2);
-        defaultCustomerPurchaseItemIDs.add(defaultCustomerPurchaseItemID3);
-        defaultCustomerPurchaseItemIDs.add(defaultCustomerPurchaseItemID4);
-        Mockito.when(storeItemRepository.findById(defaultCustomerPurchaseItemID1)).thenReturn(Optional.of(defaultCustomerPurchaseItem1));
-        Mockito.when(storeItemRepository.findById(defaultCustomerPurchaseItemID2)).thenReturn(Optional.of(defaultCustomerPurchaseItem2));
-        Mockito.when(storeItemRepository.findById(defaultCustomerPurchaseItemID3)).thenReturn(Optional.of(defaultCustomerPurchaseItem3));
-        Mockito.when(storeItemRepository.findById(defaultCustomerPurchaseItemID4)).thenReturn(Optional.of(defaultCustomerPurchaseItem4));
-        defaultInboundCustomerPurchase = new InboundPurchaseRecordDTO()
-                .setCustomerID(defaultCustomerID1)
-                .setPurchasedItems(defaultCustomerPurchaseItemIDs);
-        defaultCustomerPurchaseRecordID = 123L;
-        defaultCustomerPurchaseRecordCreatedDate = new Date();
-        defaultCustomerPurchaseRecord = new PurchaseRecord().setCustomerID(defaultCustomerID1)
-                .setPurchaseID(defaultCustomerPurchaseRecordID)
-                .setCreatedDate(defaultCustomerPurchaseRecordCreatedDate)
-                .setPurchasedItemIDs(defaultCustomerPurchaseItemIDs);
-        defaultListOfCustomers = new ArrayList<>();
-        defaultListOfCustomers.add(new Customer().setCustomerID(defaultCustomerID1));
-        defaultListOfCustomers.add(new Customer().setCustomerID(defaultCustomerID2));
-        defaultListOfCustomers.add(new Customer().setCustomerID(defaultCustomerID3));
-        defaultListOfCustomers.add(new Customer().setCustomerID(defaultCustomerID4));
-        defaultListOfCustomers.add(new Customer().setCustomerID(defaultCustomerID5));
+        DefaultStoreValues.initialize(storeItemRepository);
     }
 
     @Test
@@ -101,11 +48,11 @@ class StoreInventoryControllerTest {
          * Setup
          */
         // stub the customer lookup to simulate existing customer
-        Mockito.when(customerRepository.findById(defaultCustomerID1)).thenReturn(Optional.of(defaultCustomer));
+        Mockito.when(customerRepository.findById(DefaultStoreValues.defaultCustomerID1)).thenReturn(Optional.of(DefaultStoreValues.defaultCustomer));
 
         // stub the dto mapper operation to return the expected result
         final PurchaseRecord expectedResult = Mockito.mock(PurchaseRecord.class);
-        Mockito.when(dtoMapper.toPurchaseRecord(defaultInboundCustomerPurchase)).thenReturn(expectedResult);
+        Mockito.when(dtoMapper.toPurchaseRecord(DefaultStoreValues.defaultInboundCustomerPurchase)).thenReturn(expectedResult);
 
         // stub the save operation to save successfully returning the saved result
         Mockito.when(purchaseRecordRepository.save(expectedResult)).thenReturn(expectedResult);
@@ -113,15 +60,15 @@ class StoreInventoryControllerTest {
         /**
          * Exercise
          */
-        final PurchaseRecord actualResult = objectUnderTest.purchase(defaultInboundCustomerPurchase);
+        final PurchaseRecord actualResult = objectUnderTest.purchase(DefaultStoreValues.defaultInboundCustomerPurchase);
 
         /**
          * Verify
          */
         Assertions.assertTrue(expectedResult == actualResult, "The returned result does not match the expected result");
         Mockito.verify(purchaseRecordRepository, Mockito.times(1)).save(expectedResult);
-        Mockito.verify(customerRepository, Mockito.times(1)).findById(defaultCustomerID1);
-        Mockito.verify(dtoMapper, Mockito.times(1)).toPurchaseRecord(defaultInboundCustomerPurchase);
+        Mockito.verify(customerRepository, Mockito.times(1)).findById(DefaultStoreValues.defaultCustomerID1);
+        Mockito.verify(dtoMapper, Mockito.times(1)).toPurchaseRecord(DefaultStoreValues.defaultInboundCustomerPurchase);
         Mockito.verify(customerRepository, Mockito.never()).save(Mockito.any());
     }
 
@@ -131,11 +78,11 @@ class StoreInventoryControllerTest {
          * Setup
          */
         // stub the customer lookup to simulate non existing customer
-        Mockito.when(customerRepository.findById(defaultCustomerID1)).thenReturn(Optional.empty());
+        Mockito.when(customerRepository.findById(DefaultStoreValues.defaultCustomerID1)).thenReturn(Optional.empty());
 
         // stub the dto mapper operation return the expect result
         final PurchaseRecord expectedResult = Mockito.mock(PurchaseRecord.class);
-        Mockito.when(dtoMapper.toPurchaseRecord(defaultInboundCustomerPurchase)).thenReturn(expectedResult);
+        Mockito.when(dtoMapper.toPurchaseRecord(DefaultStoreValues.defaultInboundCustomerPurchase)).thenReturn(expectedResult);
 
         // stub the save operation to save successfully returning saved result
         Mockito.when(purchaseRecordRepository.save(expectedResult)).thenReturn(expectedResult);
@@ -143,15 +90,15 @@ class StoreInventoryControllerTest {
         /**
          * Exercise
          */
-        final PurchaseRecord actualResult = objectUnderTest.purchase(defaultInboundCustomerPurchase);
+        final PurchaseRecord actualResult = objectUnderTest.purchase(DefaultStoreValues.defaultInboundCustomerPurchase);
 
         /**
          * Verify
          */
         Assertions.assertTrue(expectedResult == actualResult, "The returned result does not match the expected result");
         Mockito.verify(customerRepository, Mockito.times(1)).save(Mockito.any());
-        Mockito.verify(customerRepository, Mockito.times(1)).findById(defaultCustomerID1);
-        Mockito.verify(dtoMapper, Mockito.times(1)).toPurchaseRecord(defaultInboundCustomerPurchase);
+        Mockito.verify(customerRepository, Mockito.times(1)).findById(DefaultStoreValues.defaultCustomerID1);
+        Mockito.verify(dtoMapper, Mockito.times(1)).toPurchaseRecord(DefaultStoreValues.defaultInboundCustomerPurchase);
         Mockito.verify(purchaseRecordRepository, Mockito.times(1)).save(expectedResult);
     }
 
@@ -166,12 +113,12 @@ class StoreInventoryControllerTest {
         Mockito.when(purchaseRecordRepository.findById(inputPurchaseID)).thenReturn(Optional.of(foundRecord));
 
         // Stub the store bought items in the found purchase record
-        Mockito.when(foundRecord.getPurchasedItemIDs()).thenReturn(defaultCustomerPurchaseItemIDs);
-        Mockito.when(storeItemRepository.findById(defaultCustomerPurchaseItemID1)).thenReturn(Optional.of(defaultCustomerPurchaseItem1));
-        Mockito.when(storeItemRepository.findById(defaultCustomerPurchaseItemID2)).thenReturn(Optional.of(defaultCustomerPurchaseItem2));
-        Mockito.when(storeItemRepository.findById(defaultCustomerPurchaseItemID3)).thenReturn(Optional.of(defaultCustomerPurchaseItem3));
-        Mockito.when(storeItemRepository.findById(defaultCustomerPurchaseItemID4)).thenReturn(Optional.of(defaultCustomerPurchaseItem4));
-        final float expectedTotalCost = defaultCustomerPurchaseTotalCost;
+        Mockito.when(foundRecord.getPurchasedItemIDs()).thenReturn(DefaultStoreValues.defaultCustomerPurchaseItemIDs);
+        Mockito.when(storeItemRepository.findById(DefaultStoreValues.defaultCustomerPurchaseItemID1)).thenReturn(Optional.of(DefaultStoreValues.defaultCustomerPurchaseItem1));
+        Mockito.when(storeItemRepository.findById(DefaultStoreValues.defaultCustomerPurchaseItemID2)).thenReturn(Optional.of(DefaultStoreValues.defaultCustomerPurchaseItem2));
+        Mockito.when(storeItemRepository.findById(DefaultStoreValues.defaultCustomerPurchaseItemID3)).thenReturn(Optional.of(DefaultStoreValues.defaultCustomerPurchaseItem3));
+        Mockito.when(storeItemRepository.findById(DefaultStoreValues.defaultCustomerPurchaseItemID4)).thenReturn(Optional.of(DefaultStoreValues.defaultCustomerPurchaseItem4));
+        final float expectedTotalCost = DefaultStoreValues.defaultCustomerPurchaseTotalCost;
 
         // Stub the dto mapper to successfully convert the database record to output format
         final OutboundPurchaseRecordDTO expectedResult = Mockito.mock(OutboundPurchaseRecordDTO.class);
@@ -227,7 +174,7 @@ class StoreInventoryControllerTest {
         /**
          * Setup
          */
-        Mockito.when(customerRepository.findAll()).thenReturn(defaultListOfCustomers);
+        Mockito.when(customerRepository.findAll()).thenReturn(DefaultStoreValues.defaultListOfCustomers);
 
         /**
          * Exercise
@@ -238,13 +185,13 @@ class StoreInventoryControllerTest {
         /**
          * Verify
          */
-        Assertions.assertEquals(actualResult.get(0), defaultCustomerID1);
-        Assertions.assertEquals(actualResult.get(1), defaultCustomerID2);
-        Assertions.assertEquals(actualResult.get(2), defaultCustomerID3);
-        Assertions.assertEquals(actualResult.get(3), defaultCustomerID4);
-        Assertions.assertEquals(actualResult.get(4), defaultCustomerID5);
-        Assertions.assertTrue(actualResult.size() == defaultListOfCustomers.size());
-        Assertions.assertTrue(defaultListOfCustomers.size() == 5);
+        Assertions.assertEquals(actualResult.get(0), DefaultStoreValues.defaultCustomerID1);
+        Assertions.assertEquals(actualResult.get(1), DefaultStoreValues.defaultCustomerID2);
+        Assertions.assertEquals(actualResult.get(2), DefaultStoreValues.defaultCustomerID3);
+        Assertions.assertEquals(actualResult.get(3), DefaultStoreValues.defaultCustomerID4);
+        Assertions.assertEquals(actualResult.get(4), DefaultStoreValues.defaultCustomerID5);
+        Assertions.assertTrue(actualResult.size() == DefaultStoreValues.defaultListOfCustomers.size());
+        Assertions.assertTrue(DefaultStoreValues.defaultListOfCustomers.size() == 5);
     }
 
     @Test
@@ -253,16 +200,16 @@ class StoreInventoryControllerTest {
          * Setup
          */
         // Stub the customer lookup to succeed
-        final String customerID = defaultCustomerID1;
-        final Customer customer = defaultCustomer;
-        Mockito.when(customerRepository.findById(customerID)).thenReturn(Optional.of(defaultCustomer));
+        final String customerID = DefaultStoreValues.defaultCustomerID1;
+        final Customer customer = DefaultStoreValues.defaultCustomer;
+        Mockito.when(customerRepository.findById(customerID)).thenReturn(Optional.of(DefaultStoreValues.defaultCustomer));
 
         // Stub the purchase record lookup to return various purchase records
-        final PurchaseRecord purchaseRecord1 = defaultCustomerPurchaseRecord;
-        final Long[] purchase2ItemIDs =  {defaultCustomerPurchaseItemID3, defaultCustomerPurchaseItemID4};
-        final PurchaseRecord purchaseRecord2 = createNewPurchaseRecord(321L, customerID, new Date(), purchase2ItemIDs);
-        final Long[] purchase3ItemIDs = {defaultCustomerPurchaseItemID3, defaultCustomerPurchaseItemID1};
-        final PurchaseRecord purchaseRecord3 = createNewPurchaseRecord(542L, customerID, new Date(), purchase3ItemIDs);
+        final PurchaseRecord purchaseRecord1 = DefaultStoreValues.defaultCustomerPurchaseRecord;
+        final Long[] purchase2ItemIDs =  {DefaultStoreValues.defaultCustomerPurchaseItemID3, DefaultStoreValues.defaultCustomerPurchaseItemID4};
+        final PurchaseRecord purchaseRecord2 = DefaultStoreValues.createNewPurchaseRecord(321L, customerID, new Date(), purchase2ItemIDs);
+        final Long[] purchase3ItemIDs = {DefaultStoreValues.defaultCustomerPurchaseItemID3, DefaultStoreValues.defaultCustomerPurchaseItemID1};
+        final PurchaseRecord purchaseRecord3 = DefaultStoreValues.createNewPurchaseRecord(542L, customerID, new Date(), purchase3ItemIDs);
         final List<PurchaseRecord> purchaseRecordList = new ArrayList<>();
         purchaseRecordList.add(purchaseRecord3);// $6.48
         purchaseRecordList.add(purchaseRecord1); // total of $558.15
@@ -280,7 +227,7 @@ class StoreInventoryControllerTest {
         /**
          * Exercise
          */
-        final List<OutboundPurchaseRecordDTO> actualResult = objectUnderTest.customerPurchases(defaultCustomerID1);
+        final List<OutboundPurchaseRecordDTO> actualResult = objectUnderTest.customerPurchases(DefaultStoreValues.defaultCustomerID1);
 
         /**
          * Verify
@@ -304,7 +251,7 @@ class StoreInventoryControllerTest {
          * Setup
          */
         // stub the customer lookup to simulate non existing customer
-        final String customerID = defaultCustomerID1;
+        final String customerID = DefaultStoreValues.defaultCustomerID1;
         Mockito.when(customerRepository.findById(customerID)).thenReturn(Optional.empty());
 
         /**
@@ -330,15 +277,15 @@ class StoreInventoryControllerTest {
         /**
          * Setup
          */
-        final String customerID = defaultCustomerID1;
+        final String customerID = DefaultStoreValues.defaultCustomerID1;
         // stub the customer lookup to succeed
-        Mockito.when(customerRepository.findById(customerID)).thenReturn(Optional.of(defaultCustomer));
+        Mockito.when(customerRepository.findById(customerID)).thenReturn(Optional.of(DefaultStoreValues.defaultCustomer));
         // stub the customer's purchase lookup to return various purchases
-        final PurchaseRecord purchaseRecord1 = defaultCustomerPurchaseRecord;
-        final Long[] purchase2ItemIDs =  {defaultCustomerPurchaseItemID3, defaultCustomerPurchaseItemID4};
-        final PurchaseRecord purchaseRecord2 = createNewPurchaseRecord(321L, customerID, new Date(), purchase2ItemIDs);
-        final Long[] purchase3ItemIDs = {defaultCustomerPurchaseItemID3, defaultCustomerPurchaseItemID1};
-        final PurchaseRecord purchaseRecord3 = createNewPurchaseRecord(542L, customerID, new Date(), purchase3ItemIDs);
+        final PurchaseRecord purchaseRecord1 = DefaultStoreValues.defaultCustomerPurchaseRecord;
+        final Long[] purchase2ItemIDs =  {DefaultStoreValues.defaultCustomerPurchaseItemID3, DefaultStoreValues.defaultCustomerPurchaseItemID4};
+        final PurchaseRecord purchaseRecord2 = DefaultStoreValues.createNewPurchaseRecord(321L, customerID, new Date(), purchase2ItemIDs);
+        final Long[] purchase3ItemIDs = {DefaultStoreValues.defaultCustomerPurchaseItemID3, DefaultStoreValues.defaultCustomerPurchaseItemID1};
+        final PurchaseRecord purchaseRecord3 = DefaultStoreValues.createNewPurchaseRecord(542L, customerID, new Date(), purchase3ItemIDs);
         final List<PurchaseRecord> purchaseRecordList = new ArrayList<>();
         purchaseRecordList.add(purchaseRecord3);// $6.48
         purchaseRecordList.add(purchaseRecord1); // total of $558.15
@@ -359,20 +306,32 @@ class StoreInventoryControllerTest {
         Assertions.assertEquals(actualResult, expectedResult);
     }
 
-    private StoreItem createStoreItem(final Long itemID, final String name, final float cost) {
-        return new StoreItem().setItemID(itemID).setName(name).setCost(cost);
+    @Test
+    void customerTotalSpentFailCustomerNotFound() {
+        /**
+         * Setup
+         */
+        // stub the customer lookup to simulate non existing customer
+        final String customerID = DefaultStoreValues.defaultCustomerID1;
+        Mockito.when(customerRepository.findById(customerID)).thenReturn(Optional.empty());
+
+        /**
+         * Exercise
+         */
+        try {
+            final String actualResult = objectUnderTest.customerTotalSpent(customerID);
+        } catch(final Exception e) {
+            /**
+             * Verify
+             */
+            Assertions.assertTrue(true, "Exception was thrown as expected when no customer present.");
+            return;
+        }
+        /**
+         * Verify
+         */
+        Assertions.assertFalse(true, "Exception was not thrown as expected when no customer present");
     }
 
-    private PurchaseRecord createNewPurchaseRecord(final Long purchaseID, final String customerID, final Date createdDate, final Long[] itemIDs) {
-        final Set<Long> purchaseItemIDs = new HashSet();
-        for(int i = 0; i < itemIDs.length; ++i) {
-            purchaseItemIDs.add(itemIDs[i]);
-        }
-        return new PurchaseRecord()
-                .setPurchaseID(purchaseID)
-                .setCreatedDate(createdDate)
-                .setCustomerID(customerID)
-                .setPurchasedItemIDs(purchaseItemIDs);
-    }
 
 }

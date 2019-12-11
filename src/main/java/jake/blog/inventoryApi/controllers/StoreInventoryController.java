@@ -69,6 +69,7 @@ public class StoreInventoryController {
         }
         final List<PurchaseRecord> purchaseRecords = purchaseRecordRepository.findAllByCustomerID(customerID);
         final List<OutboundPurchaseRecordDTO> result = new ArrayList<>();
+        final 
         for(final PurchaseRecord purchaseRecord : purchaseRecords) {
             result.add(dtoMapper.toOutboundPurchaseRecordDTO(purchaseRecord, getPurchaseTotalCost(purchaseRecord)));
         }

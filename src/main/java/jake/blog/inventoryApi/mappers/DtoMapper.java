@@ -6,6 +6,7 @@ import jake.blog.inventoryApi.model.dto.InboundPurchaseRecordDTO;
 import jake.blog.inventoryApi.model.dto.OutboundPurchaseRecordDTO;
 import jake.blog.inventoryApi.model.dto.StoreItemDTO;
 import jake.blog.inventoryApi.persist.StoreItemRepository;
+import javassist.NotFoundException;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 
@@ -33,7 +34,7 @@ public class DtoMapper {
             }
         }
         if(failureList.size() > 0) {
-            throw new RuntimeException(String.format("The following items could not be found so the purchase is being aborted. %s", failureList));
+            throw new NoSuchElementException(String.format("The following items could not be found so the purchase is being aborted. %s", failureList));
         }
 
         // 2. Return the purchase record

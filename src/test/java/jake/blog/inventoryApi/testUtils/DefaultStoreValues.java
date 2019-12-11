@@ -1,0 +1,83 @@
+package jake.blog.inventoryApi.testUtils;
+
+import jake.blog.inventoryApi.model.db.Customer;
+import jake.blog.inventoryApi.model.db.PurchaseRecord;
+import jake.blog.inventoryApi.model.db.StoreItem;
+import jake.blog.inventoryApi.model.dto.InboundPurchaseRecordDTO;
+import jake.blog.inventoryApi.persist.StoreItemRepository;
+import org.mockito.Mockito;
+
+import java.util.*;
+
+public class DefaultStoreValues {
+    public static Customer defaultCustomer;
+    public static String defaultCustomerID1;
+    public static String defaultCustomerID2;
+    public static String defaultCustomerID3;
+    public static String defaultCustomerID4;
+    public static String defaultCustomerID5;
+    public static InboundPurchaseRecordDTO defaultInboundCustomerPurchase;
+    public static Long defaultCustomerPurchaseRecordID;
+    public static Date defaultCustomerPurchaseRecordCreatedDate;
+    public static PurchaseRecord defaultCustomerPurchaseRecord;
+    public static Set<Long> defaultCustomerPurchaseItemIDs;
+    public static Long defaultCustomerPurchaseItemID1 = 1L;
+    public static StoreItem defaultCustomerPurchaseItem1 = createStoreItem(defaultCustomerPurchaseItemID1, "toothpaste", 5.37f);
+    public static Long defaultCustomerPurchaseItemID2 = 2L;
+    public static StoreItem defaultCustomerPurchaseItem2 = createStoreItem(defaultCustomerPurchaseItemID2, "TV", 500.46f);
+    public static Long defaultCustomerPurchaseItemID3 = 3L;
+    public static StoreItem defaultCustomerPurchaseItem3 = createStoreItem(defaultCustomerPurchaseItemID2, "Potato Chips", 1.11f);
+    public static Long defaultCustomerPurchaseItemID4 = 4L;
+    public static StoreItem defaultCustomerPurchaseItem4 = createStoreItem(defaultCustomerPurchaseItemID2, "Sneakers", 51.21f);
+    public static Float defaultCustomerPurchaseTotalCost = 558.15f; // the sum of the above
+    public static List<Customer> defaultListOfCustomers;
+
+    public static void initialize(final StoreItemRepository storeItemRepository) {
+        defaultCustomerID1 = "Bilbo Baggins";
+        defaultCustomerID2 = "Jerry Seinfeld";
+        defaultCustomerID3 = "Newman";
+        defaultCustomerID4 = "Kramer";
+        defaultCustomerID5 = "Gandalf";
+        defaultCustomer = new Customer().setCustomerID(defaultCustomerID1);
+        defaultCustomerPurchaseItemIDs = new HashSet<>();
+        defaultCustomerPurchaseItemIDs.add(defaultCustomerPurchaseItemID1);
+        defaultCustomerPurchaseItemIDs.add(defaultCustomerPurchaseItemID2);
+        defaultCustomerPurchaseItemIDs.add(defaultCustomerPurchaseItemID3);
+        defaultCustomerPurchaseItemIDs.add(defaultCustomerPurchaseItemID4);
+        Mockito.when(storeItemRepository.findById(defaultCustomerPurchaseItemID1)).thenReturn(Optional.of(defaultCustomerPurchaseItem1));
+        Mockito.when(storeItemRepository.findById(defaultCustomerPurchaseItemID2)).thenReturn(Optional.of(defaultCustomerPurchaseItem2));
+        Mockito.when(storeItemRepository.findById(defaultCustomerPurchaseItemID3)).thenReturn(Optional.of(defaultCustomerPurchaseItem3));
+        Mockito.when(storeItemRepository.findById(defaultCustomerPurchaseItemID4)).thenReturn(Optional.of(defaultCustomerPurchaseItem4));
+        defaultInboundCustomerPurchase = new InboundPurchaseRecordDTO()
+                .setCustomerID(defaultCustomerID1)
+                .setPurchasedItems(defaultCustomerPurchaseItemIDs);
+        defaultCustomerPurchaseRecordID = 123L;
+        defaultCustomerPurchaseRecordCreatedDate = new Date();
+        defaultCustomerPurchaseRecord = new PurchaseRecord().setCustomerID(defaultCustomerID1)
+                .setPurchaseID(defaultCustomerPurchaseRecordID)
+                .setCreatedDate(defaultCustomerPurchaseRecordCreatedDate)
+                .setPurchasedItemIDs(defaultCustomerPurchaseItemIDs);
+        defaultListOfCustomers = new ArrayList<>();
+        defaultListOfCustomers.add(new Customer().setCustomerID(defaultCustomerID1));
+        defaultListOfCustomers.add(new Customer().setCustomerID(defaultCustomerID2));
+        defaultListOfCustomers.add(new Customer().setCustomerID(defaultCustomerID3));
+        defaultListOfCustomers.add(new Customer().setCustomerID(defaultCustomerID4));
+        defaultListOfCustomers.add(new Customer().setCustomerID(defaultCustomerID5));
+    }
+
+    public static StoreItem createStoreItem(final Long itemID, final String name, final float cost) {
+        return new StoreItem().setItemID(itemID).setName(name).setCost(cost);
+    }
+
+    public static PurchaseRecord createNewPurchaseRecord(final Long purchaseID, final String customerID, final Date createdDate, final Long[] itemIDs) {
+        final Set<Long> purchaseItemIDs = new HashSet();
+        for(int i = 0; i < itemIDs.length; ++i) {
+            purchaseItemIDs.add(itemIDs[i]);
+        }
+        return new PurchaseRecord()
+                .setPurchaseID(purchaseID)
+                .setCreatedDate(createdDate)
+                .setCustomerID(customerID)
+                .setPurchasedItemIDs(purchaseItemIDs);
+    }
+}
