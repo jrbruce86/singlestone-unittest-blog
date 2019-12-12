@@ -246,6 +246,54 @@ class StoreInventoryControllerTest {
     }
 
     @Test
+    void customerPurchasesLookupSuccessButMissingStoreItem() {
+        // Stub the customer lookup to succeed
+        final String customerID = DefaultStoreValues.defaultCustomerID1;
+        final Customer customer = DefaultStoreValues.defaultCustomer;
+        Mockito.when(customerRepository.findById(customerID)).thenReturn(Optional.of(DefaultStoreValues.defaultCustomer));
+
+        // Stub the purchase record lookup to return various purchase records and include items not in the store repository
+        final PurchaseRecord purchaseRecord1 = DefaultStoreValues.defaultCustomerPurchaseRecord;
+        final Long[] purchase2ItemIDs =  {DefaultStoreValues.defaultCustomerPurchaseItemID3, DefaultStoreValues.defaultCustomerPurchaseItemID4, 55L};
+        final PurchaseRecord purchaseRecord2 = DefaultStoreValues.createNewPurchaseRecord(321L, customerID, new Date(), purchase2ItemIDs);
+        final Long[] purchase3ItemIDs = {DefaultStoreValues.defaultCustomerPurchaseItemID3, DefaultStoreValues.defaultCustomerPurchaseItemID1, 76L};
+        final PurchaseRecord purchaseRecord3 = DefaultStoreValues.createNewPurchaseRecord(542L, customerID, new Date(), purchase3ItemIDs);
+        final List<PurchaseRecord> purchaseRecordList = new ArrayList<>();
+        purchaseRecordList.add(purchaseRecord3);// $6.48
+        purchaseRecordList.add(purchaseRecord1); // total of $558.15
+        purchaseRecordList.add(purchaseRecord2); // $52.32
+        Mockito.when(purchaseRecordRepository.findAllByCustomerID(customerID)).thenReturn(purchaseRecordList);
+
+        // Stub the dto mapper to return a separate mock for each input
+        final OutboundPurchaseRecordDTO outboundPurchase1 = new OutboundPurchaseRecordDTO().setPurchaseTotalCost("558.15");
+        Mockito.when(dtoMapper.toOutboundPurchaseRecordDTO(purchaseRecord1, 558.15f)).thenReturn(outboundPurchase1);
+        final OutboundPurchaseRecordDTO outboundPurchase2 = new OutboundPurchaseRecordDTO().setPurchaseTotalCost("52.32");
+        Mockito.when(dtoMapper.toOutboundPurchaseRecordDTO(purchaseRecord2, 52.32f)).thenReturn(outboundPurchase2);
+        final OutboundPurchaseRecordDTO outboundPurchase3 = new OutboundPurchaseRecordDTO().setPurchaseTotalCost("6.48");
+        Mockito.when(dtoMapper.toOutboundPurchaseRecordDTO(purchaseRecord3, 6.48f)).thenReturn(outboundPurchase3);
+
+        /**
+         * Exercise
+         */
+        final List<OutboundPurchaseRecordDTO> actualResult = objectUnderTest.customerPurchases(DefaultStoreValues.defaultCustomerID1);
+
+        /**
+         * Verify
+         */
+        // Make sure the correct arguments were passed into the mapper and that the results are in the correct order (sorted by cost decsending)
+        final ArgumentCaptor<PurchaseRecord> purchaseRecordArgumentCaptor = ArgumentCaptor.forClass(PurchaseRecord.class);
+        final ArgumentCaptor<Float> floatArgumentCaptor = ArgumentCaptor.forClass(Float.class);
+        Mockito.verify(dtoMapper, Mockito.times(3)).toOutboundPurchaseRecordDTO(purchaseRecordArgumentCaptor.capture(), floatArgumentCaptor.capture());
+        Assertions.assertEquals(floatArgumentCaptor.getAllValues().get(0).floatValue(), 6.48f);
+        Assertions.assertEquals(floatArgumentCaptor.getAllValues().get(1).floatValue(), 558.15f);
+        Assertions.assertEquals(floatArgumentCaptor.getAllValues().get(2).floatValue(), 52.32f);
+        log.error("Actual result: {}", actualResult);
+        Assertions.assertTrue(actualResult.get(0) == outboundPurchase1, String.format("Expected %s but got %s",outboundPurchase1, actualResult.get(0)));
+        Assertions.assertTrue(actualResult.get(1) == outboundPurchase2);
+        Assertions.assertTrue(actualResult.get(2) == outboundPurchase3);
+    }
+
+    @Test
     public void customerPurchaseLookupFailCustomerNotFound() {
         /**
          * Setup

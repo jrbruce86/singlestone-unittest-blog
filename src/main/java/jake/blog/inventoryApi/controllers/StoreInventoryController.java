@@ -14,7 +14,9 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 @RestController
@@ -69,14 +71,11 @@ public class StoreInventoryController {
         }
         final List<PurchaseRecord> purchaseRecords = purchaseRecordRepository.findAllByCustomerID(customerID);
         final List<OutboundPurchaseRecordDTO> result = new ArrayList<>();
-        final 
         for(final PurchaseRecord purchaseRecord : purchaseRecords) {
             result.add(dtoMapper.toOutboundPurchaseRecordDTO(purchaseRecord, getPurchaseTotalCost(purchaseRecord)));
         }
         return result.stream()
-                .peek(record -> log.error("On record {}", record))
                 .sorted((t0, t1) -> Float.valueOf(t0.getPurchaseTotalCost()) > Float.valueOf(t1.getPurchaseTotalCost()) ? -1 : 1)
-                .peek(record -> log.error("post sorting.. on record {}", record))
                 .collect(Collectors.toList());
     }
 
@@ -94,6 +93,7 @@ public class StoreInventoryController {
     private Float getPurchaseTotalCost(final PurchaseRecord purchaseRecord) {
         return Math.round(purchaseRecord.getPurchasedItemIDs().stream()
                 .map(itemID -> storeItemRepository.findById(itemID))
+                .filter(Predicate.not(Objects::isNull))
                 .map(item -> BigDecimal.valueOf(item.get().getCost()))
                 .reduce(BigDecimal::add).get().floatValue() * 100f) / 100f;
     }

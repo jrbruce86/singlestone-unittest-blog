@@ -57,12 +57,12 @@ public class DtoMapper {
                 .setStoreItems(storeItemDTOS)
                 .setPurchaseDate(purchaseRecord.getCreatedDate())
                 .setPurchaseID(purchaseRecord.getPurchaseID().toString())
-                .setPurchaseTotalCost(String.valueOf(totalCost));
+                .setPurchaseTotalCost(String.format("$%s", String.valueOf(totalCost)));
     }
 
     public StoreItemDTO toStoreItemDTO(final StoreItem storeItem) {
         return new StoreItemDTO()
-                .setCost(storeItem.getCost().toString())
+                .setCost(String.format("$%s", storeItem.getCost().toString()))
                 .setName(storeItem.getName());
     }
 }
