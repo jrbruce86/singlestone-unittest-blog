@@ -42,38 +42,38 @@ class StoreInventoryControllerTest {
         DefaultStoreValues.initialize(storeItemRepository);
     }
 
+//    @Test
+//    public void customerSubsequentPurchaseSuccessful() {
+//        /**
+//         * Setup
+//         */
+//        // stub the customer lookup to simulate existing customer
+//        Mockito.when(customerRepository.findById(DefaultStoreValues.defaultCustomerID1)).thenReturn(Optional.of(DefaultStoreValues.defaultCustomer));
+//
+//        // stub the dto mapper operation to return the expected result
+//        final PurchaseRecord expectedResult = Mockito.mock(PurchaseRecord.class);
+//        Mockito.when(dtoMapper.toPurchaseRecord(DefaultStoreValues.defaultInboundCustomerPurchase)).thenReturn(expectedResult);
+//
+//        // stub the save operation to save successfully returning the saved result
+//        Mockito.when(purchaseRecordRepository.save(expectedResult)).thenReturn(expectedResult);
+//
+//        /**
+//         * Exercise
+//         */
+//        final PurchaseRecord actualResult = objectUnderTest.purchase(DefaultStoreValues.defaultInboundCustomerPurchase);
+//
+//        /**
+//         * Verify
+//         */
+//        Assertions.assertTrue(expectedResult == actualResult, "The returned result does not match the expected result");
+//        Mockito.verify(purchaseRecordRepository, Mockito.times(1)).save(expectedResult);
+//        Mockito.verify(customerRepository, Mockito.times(1)).findById(DefaultStoreValues.defaultCustomerID1);
+//        Mockito.verify(dtoMapper, Mockito.times(1)).toPurchaseRecord(DefaultStoreValues.defaultInboundCustomerPurchase);
+//        Mockito.verify(customerRepository, Mockito.never()).save(Mockito.any());
+//    }
+
     @Test
-    public void purchaseExistingCustomerSuccessful() {
-        /**
-         * Setup
-         */
-        // stub the customer lookup to simulate existing customer
-        Mockito.when(customerRepository.findById(DefaultStoreValues.defaultCustomerID1)).thenReturn(Optional.of(DefaultStoreValues.defaultCustomer));
-
-        // stub the dto mapper operation to return the expected result
-        final PurchaseRecord expectedResult = Mockito.mock(PurchaseRecord.class);
-        Mockito.when(dtoMapper.toPurchaseRecord(DefaultStoreValues.defaultInboundCustomerPurchase)).thenReturn(expectedResult);
-
-        // stub the save operation to save successfully returning the saved result
-        Mockito.when(purchaseRecordRepository.save(expectedResult)).thenReturn(expectedResult);
-
-        /**
-         * Exercise
-         */
-        final PurchaseRecord actualResult = objectUnderTest.purchase(DefaultStoreValues.defaultInboundCustomerPurchase);
-
-        /**
-         * Verify
-         */
-        Assertions.assertTrue(expectedResult == actualResult, "The returned result does not match the expected result");
-        Mockito.verify(purchaseRecordRepository, Mockito.times(1)).save(expectedResult);
-        Mockito.verify(customerRepository, Mockito.times(1)).findById(DefaultStoreValues.defaultCustomerID1);
-        Mockito.verify(dtoMapper, Mockito.times(1)).toPurchaseRecord(DefaultStoreValues.defaultInboundCustomerPurchase);
-        Mockito.verify(customerRepository, Mockito.never()).save(Mockito.any());
-    }
-
-    @Test
-    public void purchaseNonExistingCustomerSuccessful() {
+    public void customerInitialPurchaseSuccessful() {
         /**
          * Setup
          */
