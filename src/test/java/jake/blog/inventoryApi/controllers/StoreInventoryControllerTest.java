@@ -27,7 +27,7 @@ class StoreInventoryControllerTest {
     private DtoMapper dtoMapper;
 
     // object being tested
-    private StoreInventoryController objectUnderTest;
+    private StoreInventoryController systemUnderTest;
 
     @BeforeEach
     public void setup() {
@@ -36,7 +36,7 @@ class StoreInventoryControllerTest {
         customerRepository = Mockito.mock(CustomerRepository.class);
         dtoMapper = Mockito.mock(DtoMapper.class);
 
-        objectUnderTest = new StoreInventoryController(purchaseRecordRepository,
+        systemUnderTest = new StoreInventoryController(purchaseRecordRepository,
                 storeItemRepository, customerRepository, dtoMapper);
 
         DefaultStoreValues.initialize(storeItemRepository);
@@ -60,7 +60,7 @@ class StoreInventoryControllerTest {
         /**
          * Exercise
          */
-        final PurchaseRecord actualResult = objectUnderTest.purchase(DefaultStoreValues.defaultInboundCustomerPurchase);
+        final PurchaseRecord actualResult = systemUnderTest.purchase(DefaultStoreValues.defaultInboundCustomerPurchase);
 
         /**
          * Verify
@@ -80,6 +80,9 @@ class StoreInventoryControllerTest {
         // stub the customer lookup to simulate non existing customer
         Mockito.when(customerRepository.findById(DefaultStoreValues.defaultCustomerID1)).thenReturn(Optional.empty());
 
+        // create the expected customer to be saved
+        final Customer expectedSavedCustomer = new Customer().setCustomerID(DefaultStoreValues.defaultCustomerID1);
+
         // stub the dto mapper operation return the expect result
         final PurchaseRecord expectedResult = Mockito.mock(PurchaseRecord.class);
         Mockito.when(dtoMapper.toPurchaseRecord(DefaultStoreValues.defaultInboundCustomerPurchase)).thenReturn(expectedResult);
@@ -90,18 +93,16 @@ class StoreInventoryControllerTest {
         /**
          * Exercise
          */
-        final PurchaseRecord actualResult = objectUnderTest.purchase(DefaultStoreValues.defaultInboundCustomerPurchase);
+        final PurchaseRecord actualResult = systemUnderTest.purchase(DefaultStoreValues.defaultInboundCustomerPurchase);
 
         /**
          * Verify
          */
-        Assertions.assertTrue(expectedResult == actualResult, "The returned result does not match the expected result");
-        final ArgumentCaptor<Customer> expectedSavedCustomer = ArgumentCaptor.forClass(Customer.class);
-        Mockito.verify(customerRepository, Mockito.times(1)).save(expectedSavedCustomer.capture());
-        Assertions.assertEquals(expectedSavedCustomer.getValue().getCustomerID(), DefaultStoreValues.defaultCustomerID1);
+        Mockito.verify(customerRepository, Mockito.times(1)).save(expectedSavedCustomer);
         Mockito.verify(customerRepository, Mockito.times(1)).findById(DefaultStoreValues.defaultCustomerID1);
         Mockito.verify(dtoMapper, Mockito.times(1)).toPurchaseRecord(DefaultStoreValues.defaultInboundCustomerPurchase);
         Mockito.verify(purchaseRecordRepository, Mockito.times(1)).save(expectedResult);
+        Assertions.assertTrue(expectedResult == actualResult, "The returned result does not match the expected result");
     }
 
     @Test
@@ -130,7 +131,7 @@ class StoreInventoryControllerTest {
         /**
          * Exercise
          */
-        final OutboundPurchaseRecordDTO actualResult = objectUnderTest.getPurchase(inputPurchaseID);
+        final OutboundPurchaseRecordDTO actualResult = systemUnderTest.getPurchase(inputPurchaseID);
         log.error("Actual result: {}", actualResult);
 
         /**
@@ -157,7 +158,7 @@ class StoreInventoryControllerTest {
          * Exercise
          */
         try {
-            objectUnderTest.getPurchase(inputPurchaseID);
+            systemUnderTest.getPurchase(inputPurchaseID);
         } catch(final Exception e) {
             /**
              * Verify
@@ -181,7 +182,7 @@ class StoreInventoryControllerTest {
         /**
          * Exercise
          */
-        final List<String> actualResult = objectUnderTest.customers();
+        final List<String> actualResult = systemUnderTest.customers();
 
 
         /**
@@ -229,7 +230,7 @@ class StoreInventoryControllerTest {
         /**
          * Exercise
          */
-        final List<OutboundPurchaseRecordDTO> actualResult = objectUnderTest.customerPurchases(DefaultStoreValues.defaultCustomerID1);
+        final List<OutboundPurchaseRecordDTO> actualResult = systemUnderTest.customerPurchases(DefaultStoreValues.defaultCustomerID1);
 
         /**
          * Verify
@@ -277,7 +278,7 @@ class StoreInventoryControllerTest {
         /**
          * Exercise
          */
-        final List<OutboundPurchaseRecordDTO> actualResult = objectUnderTest.customerPurchases(DefaultStoreValues.defaultCustomerID1);
+        final List<OutboundPurchaseRecordDTO> actualResult = systemUnderTest.customerPurchases(DefaultStoreValues.defaultCustomerID1);
 
         /**
          * Verify
@@ -308,7 +309,7 @@ class StoreInventoryControllerTest {
          * Exercise
          */
         try {
-            final List<OutboundPurchaseRecordDTO> actualResult = objectUnderTest.customerPurchases(customerID);
+            final List<OutboundPurchaseRecordDTO> actualResult = systemUnderTest.customerPurchases(customerID);
         } catch(final Exception e) {
             /**
              * Verify
@@ -345,7 +346,7 @@ class StoreInventoryControllerTest {
         /**
          * Exercise
          */
-        final String actualResult = objectUnderTest.customerTotalSpent(customerID);
+        final String actualResult = systemUnderTest.customerTotalSpent(customerID);
 
         /**
          * Verify
@@ -369,7 +370,7 @@ class StoreInventoryControllerTest {
          * Exercise
          */
         try {
-            final String actualResult = objectUnderTest.customerTotalSpent(customerID);
+            final String actualResult = systemUnderTest.customerTotalSpent(customerID);
         } catch(final Exception e) {
             /**
              * Verify
