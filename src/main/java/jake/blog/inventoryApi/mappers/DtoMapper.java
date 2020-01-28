@@ -24,7 +24,7 @@ public class DtoMapper {
 
     public PurchaseRecord toPurchaseRecord(final InboundPurchaseRecordDTO purchaseRecordDTO) {
         // 1. Verify that the purchased items are valid and if so map them to a list
-        final Set<Long> itemIDs = new HashSet<>();
+        final HashSet<Long> itemIDs = new HashSet<>();
         final List<Long> failureList = new ArrayList<>();
         for (Long itemID : purchaseRecordDTO.getPurchasedItems()) {
             if(storeItemRepository.findById(itemID).isEmpty()) {
@@ -47,7 +47,6 @@ public class DtoMapper {
         for(final Long itemID : purchaseRecord.getPurchasedItemIDs()) {
             final Optional<StoreItem> storeItem = storeItemRepository.findById(itemID);
             if(storeItem.isEmpty()) {
-                log.error("The item with id {} could not be found!!!", itemID);
                 continue;
             }
             storeItemDTOS.add(toStoreItemDTO(storeItem.get()));

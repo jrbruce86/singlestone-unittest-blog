@@ -7,7 +7,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import javax.persistence.*;
 import java.util.Date;
-import java.util.Set;
+import java.util.HashSet;
 
 @Entity
 @Table(name = "Purchases")
@@ -21,7 +21,7 @@ public class PurchaseRecord {
 
     private String customerID; // Links to a CustomerReporsitory record
 
-    private Set<Long> purchasedItemIDs; // Links to a set of StoreItemRepository records
+    private HashSet<Long> purchasedItemIDs; // Links to a set of StoreItemRepository records
 
     @CreatedDate
     private Date createdDate;

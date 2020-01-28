@@ -126,13 +126,11 @@ class StoreInventoryControllerTest {
         // Stub the dto mapper to successfully convert the database record to output format
         final OutboundPurchaseRecordDTO expectedResult = Mockito.mock(OutboundPurchaseRecordDTO.class);
         Mockito.when(dtoMapper.toOutboundPurchaseRecordDTO(Mockito.any(PurchaseRecord.class), Mockito.anyFloat())).thenReturn(expectedResult);
-        log.error("Expected found record: {}", foundRecord);
 
         /**
          * Exercise
          */
         final OutboundPurchaseRecordDTO actualResult = systemUnderTest.getPurchase(inputPurchaseID);
-        log.error("Actual result: {}", actualResult);
 
         /**
          * Verify
@@ -141,7 +139,6 @@ class StoreInventoryControllerTest {
         ArgumentCaptor<PurchaseRecord> purchaseRecordArg = ArgumentCaptor.forClass(PurchaseRecord.class);
         ArgumentCaptor<Float> totalCostArg = ArgumentCaptor.forClass(Float.class);
         Mockito.verify(dtoMapper, Mockito.times(1)).toOutboundPurchaseRecordDTO(purchaseRecordArg.capture(), totalCostArg.capture());
-        log.error("total cost calculated: {}", totalCostArg.getValue());
         Assertions.assertEquals((float)totalCostArg.getValue(), expectedTotalCost, "Total cost calculation error.");
     }
 
@@ -242,7 +239,6 @@ class StoreInventoryControllerTest {
         Assertions.assertEquals(floatArgumentCaptor.getAllValues().get(0).floatValue(), 6.48f);
         Assertions.assertEquals(floatArgumentCaptor.getAllValues().get(1).floatValue(), 558.15f);
         Assertions.assertEquals(floatArgumentCaptor.getAllValues().get(2).floatValue(), 52.32f);
-        log.error("Actual result: {}", actualResult);
         Assertions.assertTrue(actualResult.get(0) == outboundPurchase1, String.format("Expected %s but got %s",outboundPurchase1, actualResult.get(0)));
         Assertions.assertTrue(actualResult.get(1) == outboundPurchase2);
         Assertions.assertTrue(actualResult.get(2) == outboundPurchase3);
@@ -290,7 +286,6 @@ class StoreInventoryControllerTest {
         Assertions.assertEquals(floatArgumentCaptor.getAllValues().get(0).floatValue(), 6.48f);
         Assertions.assertEquals(floatArgumentCaptor.getAllValues().get(1).floatValue(), 558.15f);
         Assertions.assertEquals(floatArgumentCaptor.getAllValues().get(2).floatValue(), 52.32f);
-        log.error("Actual result: {}", actualResult);
         Assertions.assertTrue(actualResult.get(0) == outboundPurchase1, String.format("Expected %s but got %s",outboundPurchase1, actualResult.get(0)));
         Assertions.assertTrue(actualResult.get(1) == outboundPurchase2);
         Assertions.assertTrue(actualResult.get(2) == outboundPurchase3);

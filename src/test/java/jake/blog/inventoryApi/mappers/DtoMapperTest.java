@@ -73,7 +73,6 @@ class DtoMapperTest {
             /**
              * Verify
              */
-            log.error("Exception: ", e);
             Assertions.assertTrue(true, "Exception occurred as expected when item not found in store repository");
             return;
         }

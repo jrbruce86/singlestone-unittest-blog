@@ -22,7 +22,7 @@ public class DefaultStoreValues {
     public static String defaultCustomerPurchaseRecordIDString = "123";
     public static Date defaultCustomerPurchaseRecordCreatedDate;
     public static PurchaseRecord defaultCustomerPurchaseRecord;
-    public static Set<Long> defaultCustomerPurchaseItemIDs;
+    public static HashSet<Long> defaultCustomerPurchaseItemIDs;
     public static Set<StoreItemDTO> defaultCustomerPurchaseStoreItemDTOs;
     public static Long defaultCustomerPurchaseItemID1 = 1L;
     public static StoreItem defaultCustomerPurchaseItem1 = createStoreItem(defaultCustomerPurchaseItemID1, "toothpaste", 5.37f);
@@ -82,7 +82,7 @@ public class DefaultStoreValues {
     }
 
     public static PurchaseRecord createNewPurchaseRecord(final Long purchaseID, final String customerID, final Date createdDate, final Long[] itemIDs) {
-        final Set<Long> purchaseItemIDs = new HashSet();
+        final HashSet<Long> purchaseItemIDs = new HashSet();
         for(int i = 0; i < itemIDs.length; ++i) {
             purchaseItemIDs.add(itemIDs[i]);
         }

@@ -53,7 +53,6 @@ public class StoreInventoryController {
         if(purchase.isEmpty()) {
             throw new RuntimeException(String.format("Could not find purchase with id, %d", purchaseID));
         }
-        log.error("Actual found record: {}", purchase.get());
         return dtoMapper.toOutboundPurchaseRecordDTO(purchase.get(), getPurchaseTotalCost(purchase.get()));
     }
 
@@ -75,7 +74,7 @@ public class StoreInventoryController {
             result.add(dtoMapper.toOutboundPurchaseRecordDTO(purchaseRecord, getPurchaseTotalCost(purchaseRecord)));
         }
         return result.stream()
-                .sorted((t0, t1) -> Float.valueOf(t0.getPurchaseTotalCost()) > Float.valueOf(t1.getPurchaseTotalCost()) ? -1 : 1)
+                .sorted((t0, t1) -> Float.valueOf(t0.getPurchaseTotalCost().replace("$","")) > Float.valueOf(t1.getPurchaseTotalCost().replace("$","")) ? -1 : 1)
                 .collect(Collectors.toList());
     }
 
